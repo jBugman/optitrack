@@ -1,3 +1,4 @@
+// NatNet packet parsing attempt (not finished)
 package natnet
 
 import (
@@ -8,16 +9,63 @@ import (
 	"math"
 )
 
-type frameInfo struct {
-	frameType     uint64
-	frameNumber   uint64
-	datasetsCount uint64
-	size          int
+type rawFrame struct {
+	frameType   uint64
+	frameNumber uint64
+	markerSets  []markerSet
+	unidMarkers []Vector3
+	rigidBodies []RigidBody
+	size        int
 }
 
-// Packet parsing attempt (not finished)
-func parsePacket(buf []byte) (frameInfo, error) {
-	var packet frameInfo
+type markerSet struct {
+	Name    string
+	Markers []Vector3
+}
+
+type Vector3 struct {
+	X, Y, Z float32
+}
+
+func (v Vector3) String() string {
+	return fmt.Sprintf("(%.5f, %.5f, %.5f)", v.X, v.Y, v.Z)
+}
+
+type Quaternion struct {
+	X, Y, Z, W float32
+}
+
+func (v Quaternion) String() string {
+	return fmt.Sprintf("(%.5f, %.5f, %.5f, %.5f)", v.X, v.Y, v.Z, v.W)
+}
+
+type Frame interface {
+	RigidBodies() map[string]RigidBody
+}
+
+func (f rawFrame) RigidBodies() map[string]RigidBody {
+	result := make(map[string]RigidBody, len(f.rigidBodies))
+	for i := 0; i < len(f.rigidBodies); i++ {
+		f.rigidBodies[i].Name = f.markerSets[i].Name
+		result[f.markerSets[i].Name] = f.rigidBodies[i]
+	}
+	return result
+}
+
+type RigidBody struct {
+	ID       int
+	Name     string
+	Position Vector3
+	Rotation Quaternion
+}
+
+func Parse(buf []byte) (Frame, error) {
+	frame, err := parsePacket(buf)
+	return frame, err
+}
+
+func parsePacket(buf []byte) (rawFrame, error) {
+	var packet rawFrame
 	var offset int
 
 	packet.frameType, _ = binary.Uvarint(buf[offset : offset+2])
@@ -30,42 +78,87 @@ func parsePacket(buf []byte) (frameInfo, error) {
 	offset += 2
 	packet.frameNumber, _ = binary.Uvarint(buf[offset : offset+4])
 	offset += 4
-	packet.datasetsCount, _ = binary.Uvarint(buf[offset : offset+4])
+	markerSetCount, _ := binary.Uvarint(buf[offset : offset+4])
 	offset += 4
-	fmt.Println(packet)
 
-	var numMarkers int
-	var markers []byte
-	for ms := 0; ms < int(packet.datasetsCount); ms++ {
+	// markersets
+	var markerCount uint64
+	for ms := 0; ms < int(markerSetCount); ms++ {
+		// Reading c-string
 		bb := new(bytes.Buffer)
 		var i int
 		for i = 0; buf[offset+i] != 0; i++ {
 			bb.WriteByte(buf[offset+i])
 		}
 		offset += i + 1
-		fmt.Println(bb.String())
+		mSet := markerSet{Name: bb.String()}
+		// fmt.Println("> ", bb.String())
 
-		nm, _ := binary.Uvarint(buf[offset : offset+4])
-		numMarkers = int(nm)
+		markerCount, _ = binary.Uvarint(buf[offset : offset+4])
 		offset += 4
-		nbytes := numMarkers * 3 * 4
-		markers = buf[offset : offset+nbytes]
-		offset += nbytes
-		fmt.Println(numMarkers, nbytes, markers, buf[offset:])
-		for i = 0; i < numMarkers; i++ {
-			var x, y, z float64
-			off := 0
-			x0, _ := binary.Uvarint(markers[off : off+4])
-			x = math.Float64frombits(x0)
-			off += 4
-			y0, _ := binary.Uvarint(markers[off : off+4])
-			y = math.Float64frombits(y0)
-			off += 4
-			z0, _ := binary.Uvarint(markers[off : off+4])
-			z = math.Float64frombits(z0)
-			fmt.Println(x, y, z)
+		// fmt.Println(markerCount, "markers")
+		for i = 0; i < int(markerCount); i++ {
+			x := floatFromBytes(buf[offset : offset+4])
+			offset += 4
+			y := floatFromBytes(buf[offset : offset+4])
+			offset += 4
+			z := floatFromBytes(buf[offset : offset+4])
+			offset += 4
+			v := Vector3{x, y, z}
+			mSet.Markers = append(mSet.Markers, v)
+			// fmt.Println(v)
 		}
+		packet.markerSets = append(packet.markerSets, mSet)
 	}
-	packet.size = offset
+
+	// unidentified markers
+	unidMarkerCount, _ := binary.Uvarint(buf[offset : offset+4])
+	offset += 4
+	// fmt.Println("Unid #", unidMarkerCount)
+	for i := 0; i < int(unidMarkerCount); i++ {
+		x := floatFromBytes(buf[offset : offset+4])
+		offset += 4
+		y := floatFromBytes(buf[offset : offset+4])
+		offset += 4
+		z := floatFromBytes(buf[offset : offset+4])
+		offset += 4
+		v := Vector3{x, y, z}
+		packet.unidMarkers = append(packet.unidMarkers, v)
+		// fmt.Println(v)
+	}
+
+	// rigid bodies
+	rigidBodyCount, _ := binary.Uvarint(buf[offset : offset+4])
+	offset += 4
+	// fmt.Println("==== Rigid bodies #", rigidBodyCount)
+	for i := 0; i < int(rigidBodyCount); i++ {
+		id, _ := binary.Uvarint(buf[offset : offset+4])
+		offset += 4
+		x := floatFromBytes(buf[offset : offset+4])
+		offset += 4
+		y := floatFromBytes(buf[offset : offset+4])
+		offset += 4
+		z := floatFromBytes(buf[offset : offset+4])
+		offset += 4
+		qx := floatFromBytes(buf[offset : offset+4])
+		offset += 4
+		qy := floatFromBytes(buf[offset : offset+4])
+		offset += 4
+		qz := floatFromBytes(buf[offset : offset+4])
+		offset += 4
+		qw := floatFromBytes(buf[offset : offset+4])
+		offset += 4
+		body := RigidBody{ID: int(id), Position: Vector3{x, y, z}, Rotation: Quaternion{qx, qy, qz, qw}}
+		packet.rigidBodies = append(packet.rigidBodies, body)
+		// fmt.Println(body)
+	}
+
+	packet.size = -1
 	return packet, nil
+}
+
+func floatFromBytes(bytes []byte) float32 {
+	bits := binary.LittleEndian.Uint32(bytes)
+	float := math.Float32frombits(bits)
+	return float
 }
