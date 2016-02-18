@@ -98,11 +98,11 @@ func parsePacket(buf []byte) (rawFrame, error) {
 		offset += 4
 		// fmt.Println(markerCount, "markers")
 		for i = 0; i < int(markerCount); i++ {
-			x := floatFromBytes(buf[offset : offset+4])
+			x := FloatFromBytes(buf[offset : offset+4])
 			offset += 4
-			y := floatFromBytes(buf[offset : offset+4])
+			y := FloatFromBytes(buf[offset : offset+4])
 			offset += 4
-			z := floatFromBytes(buf[offset : offset+4])
+			z := FloatFromBytes(buf[offset : offset+4])
 			offset += 4
 			v := Vector3{x, y, z}
 			mSet.Markers = append(mSet.Markers, v)
@@ -116,11 +116,11 @@ func parsePacket(buf []byte) (rawFrame, error) {
 	offset += 4
 	// fmt.Println("Unid #", unidMarkerCount)
 	for i := 0; i < int(unidMarkerCount); i++ {
-		x := floatFromBytes(buf[offset : offset+4])
+		x := FloatFromBytes(buf[offset : offset+4])
 		offset += 4
-		y := floatFromBytes(buf[offset : offset+4])
+		y := FloatFromBytes(buf[offset : offset+4])
 		offset += 4
-		z := floatFromBytes(buf[offset : offset+4])
+		z := FloatFromBytes(buf[offset : offset+4])
 		offset += 4
 		v := Vector3{x, y, z}
 		packet.unidMarkers = append(packet.unidMarkers, v)
@@ -134,19 +134,19 @@ func parsePacket(buf []byte) (rawFrame, error) {
 	for i := 0; i < int(rigidBodyCount); i++ {
 		id, _ := binary.Uvarint(buf[offset : offset+4])
 		offset += 4
-		x := floatFromBytes(buf[offset : offset+4])
+		x := FloatFromBytes(buf[offset : offset+4])
 		offset += 4
-		y := floatFromBytes(buf[offset : offset+4])
+		y := FloatFromBytes(buf[offset : offset+4])
 		offset += 4
-		z := floatFromBytes(buf[offset : offset+4])
+		z := FloatFromBytes(buf[offset : offset+4])
 		offset += 4
-		qx := floatFromBytes(buf[offset : offset+4])
+		qx := FloatFromBytes(buf[offset : offset+4])
 		offset += 4
-		qy := floatFromBytes(buf[offset : offset+4])
+		qy := FloatFromBytes(buf[offset : offset+4])
 		offset += 4
-		qz := floatFromBytes(buf[offset : offset+4])
+		qz := FloatFromBytes(buf[offset : offset+4])
 		offset += 4
-		qw := floatFromBytes(buf[offset : offset+4])
+		qw := FloatFromBytes(buf[offset : offset+4])
 		offset += 4
 		body := RigidBody{ID: int(id), Position: Vector3{x, y, z}, Rotation: Quaternion{qx, qy, qz, qw}}
 		packet.rigidBodies = append(packet.rigidBodies, body)
@@ -157,7 +157,7 @@ func parsePacket(buf []byte) (rawFrame, error) {
 	return packet, nil
 }
 
-func floatFromBytes(bytes []byte) float32 {
+func FloatFromBytes(bytes []byte) float32 {
 	bits := binary.LittleEndian.Uint32(bytes)
 	float := math.Float32frombits(bits)
 	return float
