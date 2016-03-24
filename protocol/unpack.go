@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"log"
 	"math"
 )
 
@@ -59,7 +60,14 @@ type RigidBody struct {
 	Rotation Quaternion
 }
 
-func Parse(buf []byte) (Frame, error) {
+func Parse(buf []byte) (f Frame, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println("Panicked during parsing:", r)
+			log.Println(buf)
+			err = r.(error)
+		}
+	}()
 	frame, err := parsePacket(buf)
 	return frame, err
 }
