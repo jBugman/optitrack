@@ -47,8 +47,9 @@ type Frame interface {
 func (f rawFrame) RigidBodies() map[string]RigidBody {
 	result := make(map[string]RigidBody, len(f.rigidBodies))
 	for i := 0; i < len(f.rigidBodies); i++ {
-		f.rigidBodies[i].Name = f.markerSets[i].Name
-		result[f.markerSets[i].Name] = f.rigidBodies[i]
+		name := f.markerSets[i].Name
+		f.rigidBodies[i].Name = name
+		result[name] = f.rigidBodies[i]
 	}
 	return result
 }
@@ -100,11 +101,9 @@ func parsePacket(buf []byte) (rawFrame, error) {
 		}
 		offset += i + 1
 		mSet := markerSet{Name: bb.String()}
-		// fmt.Println("> ", bb.String())
 
 		markerCount, _ = binary.Uvarint(buf[offset : offset+4])
 		offset += 4
-		// fmt.Println(markerCount, "markers")
 		for i = 0; i < int(markerCount); i++ {
 			x := FloatFromBytes(buf[offset : offset+4])
 			offset += 4
@@ -114,7 +113,6 @@ func parsePacket(buf []byte) (rawFrame, error) {
 			offset += 4
 			v := Vector3{x, y, z}
 			mSet.Markers = append(mSet.Markers, v)
-			// fmt.Println(v)
 		}
 		packet.markerSets = append(packet.markerSets, mSet)
 	}
@@ -122,7 +120,6 @@ func parsePacket(buf []byte) (rawFrame, error) {
 	// unidentified markers
 	unidMarkerCount, _ := binary.Uvarint(buf[offset : offset+4])
 	offset += 4
-	// fmt.Println("Unid #", unidMarkerCount)
 	for i := 0; i < int(unidMarkerCount); i++ {
 		x := FloatFromBytes(buf[offset : offset+4])
 		offset += 4
@@ -132,13 +129,11 @@ func parsePacket(buf []byte) (rawFrame, error) {
 		offset += 4
 		v := Vector3{x, y, z}
 		packet.unidMarkers = append(packet.unidMarkers, v)
-		// fmt.Println(v)
 	}
 
 	// rigid bodies
 	rigidBodyCount, _ := binary.Uvarint(buf[offset : offset+4])
 	offset += 4
-	// fmt.Println("==== Rigid bodies #", rigidBodyCount)
 	for i := 0; i < int(rigidBodyCount); i++ {
 		id, _ := binary.Uvarint(buf[offset : offset+4])
 		offset += 4
@@ -156,12 +151,25 @@ func parsePacket(buf []byte) (rawFrame, error) {
 		offset += 4
 		qw := FloatFromBytes(buf[offset : offset+4])
 		offset += 4
+		// associated marker positions
+		nRigidMarkers, _ := binary.Uvarint(buf[offset : offset+4])
+		offset += 4
+		offset += int(nRigidMarkers) * 3 * 4
+		// associated marker IDs
+		offset += int(nRigidMarkers) * 4
+		// associated marker sizes
+		offset += int(nRigidMarkers) * 4
+		// Mean marker error
+		offset += 4
+		// params
+		offset += 2
+
+		log.Println(Vector3{x, y, z})
 		body := RigidBody{ID: int(id), Position: Vector3{x, y, z}, Rotation: Quaternion{qx, qy, qz, qw}}
 		packet.rigidBodies = append(packet.rigidBodies, body)
-		// fmt.Println(body)
 	}
 
-	packet.size = -1
+	packet.size = -1 // TODO
 	return packet, nil
 }
 
