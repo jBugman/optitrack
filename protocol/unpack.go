@@ -164,7 +164,6 @@ func parsePacket(buf []byte) (rawFrame, error) {
 		// params
 		offset += 2
 
-		log.Println(Vector3{x, y, z})
 		body := RigidBody{ID: int(id), Position: Vector3{x, y, z}, Rotation: Quaternion{qx, qy, qz, qw}}
 		packet.rigidBodies = append(packet.rigidBodies, body)
 	}
