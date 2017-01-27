@@ -17,6 +17,7 @@ type rawFrame struct {
 	unidMarkers []Vector3
 	rigidBodies []RigidBody
 	size        int
+	bodyNames   map[string]int
 }
 
 type markerSet struct {
@@ -45,11 +46,11 @@ type Frame interface {
 }
 
 func (f rawFrame) RigidBodies() map[string]RigidBody {
-	result := make(map[string]RigidBody, len(f.rigidBodies))
-	for i := 0; i < len(f.rigidBodies); i++ {
-		name := f.markerSets[i].Name
-		f.rigidBodies[i].Name = name
-		result[name] = f.rigidBodies[i]
+	result := make(map[string]RigidBody, len(f.bodyNames))
+	for name, id := range f.bodyNames {
+		body := f.rigidBodies[id]
+		body.Name = name
+		result[name] = body
 	}
 	return result
 }
@@ -82,6 +83,7 @@ func parsePacket(buf []byte) (rawFrame, error) {
 	if packet.frameType != 7 { // 7 - mocap data
 		return packet, errors.New("Not mocap data packet")
 	}
+	packet.bodyNames = make(map[string]int)
 
 	//	numBytes, _ := binary.Uvarint(buf[offset : offset+2]) // unknown nature
 	offset += 2
@@ -89,6 +91,8 @@ func parsePacket(buf []byte) (rawFrame, error) {
 	offset += 4
 	markerSetCount, _ := binary.Uvarint(buf[offset : offset+4])
 	offset += 4
+
+	packet.rigidBodies = make([]RigidBody, markerSetCount)
 
 	// markersets
 	var markerCount uint64
@@ -100,7 +104,11 @@ func parsePacket(buf []byte) (rawFrame, error) {
 			bb.WriteByte(buf[offset+i])
 		}
 		offset += i + 1
-		mSet := markerSet{Name: bb.String()}
+		name := bb.String()
+		mSet := markerSet{Name: name}
+		if name != "all" {
+			packet.bodyNames[name] = ms
+		}
 
 		markerCount, _ = binary.Uvarint(buf[offset : offset+4])
 		offset += 4
@@ -165,7 +173,7 @@ func parsePacket(buf []byte) (rawFrame, error) {
 		offset += 2
 
 		body := RigidBody{ID: int(id), Position: Vector3{x, y, z}, Rotation: Quaternion{qx, qy, qz, qw}}
-		packet.rigidBodies = append(packet.rigidBodies, body)
+		packet.rigidBodies[body.ID-1] = body
 	}
 
 	packet.size = -1 // TODO
