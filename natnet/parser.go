@@ -38,7 +38,7 @@ func Parse(buf []byte) (f Frame, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Println("Panicked during parsing:", r)
-			log.Println(buf)
+			log.Printf("%#v\n", buf)
 			err = r.(error)
 		}
 	}()
