@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"log"
 	"math"
 )
@@ -25,26 +24,6 @@ type markerSet struct {
 	Markers []Vector3
 }
 
-type Vector3 struct {
-	X, Y, Z float32
-}
-
-func (v Vector3) String() string {
-	return fmt.Sprintf("(%.5f, %.5f, %.5f)", v.X, v.Y, v.Z)
-}
-
-type Quaternion struct {
-	X, Y, Z, W float32
-}
-
-func (v Quaternion) String() string {
-	return fmt.Sprintf("(%.5f, %.5f, %.5f, %.5f)", v.X, v.Y, v.Z, v.W)
-}
-
-type Frame interface {
-	RigidBodies() map[string]RigidBody
-}
-
 func (f rawFrame) RigidBodies() map[string]RigidBody {
 	result := make(map[string]RigidBody, len(f.bodyNames))
 	for name, id := range f.bodyNames {
@@ -53,13 +32,6 @@ func (f rawFrame) RigidBodies() map[string]RigidBody {
 		result[name] = body
 	}
 	return result
-}
-
-type RigidBody struct {
-	ID       int
-	Name     string
-	Position Vector3
-	Rotation Quaternion
 }
 
 func Parse(buf []byte) (f Frame, err error) {
